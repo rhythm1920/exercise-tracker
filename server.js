@@ -3,11 +3,11 @@ const app = express();
 const bodyParser = require("body-parser");
 const dotenv = require("dotenv");
 const cors = require("cors");
-
 const mongoose = require("mongoose");
 const { ObjectId } = require("mongodb");
 const Schema = mongoose.Schema;
 dotenv.config();
+let date;
 //set up mongoDB
 mongoose.connect(
   process.env.MLAB_URI,
@@ -36,6 +36,8 @@ app.use(express.static("public"));
 app.get("/", (req, res) => {
   res.sendFile(__dirname + "/views/index.html");
 });
+//get end-point for getting all user [/api/exercise/users]
+//get end-point for exercise logs
 //post end-point for new user
 app.post("/api/exercise/new-user/", (req, res, next) => {
   User.create(
@@ -43,23 +45,36 @@ app.post("/api/exercise/new-user/", (req, res, next) => {
     (err, data) => {
       if (err) {
         console.error(err);
+        0;
       }
       return res.json({ username: data.username, _id: ObjectId() });
     }
   );
 });
 //post end point for new exrcise
-app.post("/api/exercise/add", (req, res, next) => {
-  // more work neede here. This commit may or may not work
-  User.findById(req.body.userId, (err, data) => {
+app.post("/api/exercise/add", (req, res, done) => {
+  User.findOne({ _id: req.body.userId }, (err, data) => {
+    if (err) return console.error(err);
+    if (!req.body.date) {
+      date = new Date();
+    }
+    data.count += 1;
     data.log.push({
       description: req.body.description,
       duration: parseInt(req.body.duration),
-      date: new Date(req.body.date),
+      date: req.body.date ? new Date(req.body.date) : date,
+    });
+    data.save((err, data) => {
+      if (err) return console.error(err);
+      res.json({
+        _id: data._id,
+        username: data.username,
+        date: date.toDateString(),
+        duration: req.body.duration,
+        description: req.body.description,
+      });
     });
   });
-  //body content - {{"userId": id of document ,"description": string ,"duration": number in string ,"date": date string}}
-  // Needed reponse - {{"_id": id of document,"username":username,"date":date in "day month date(num) year(num)","duration": number of minutes of exercise ,"description": description of exercise}}
 });
 // Not found middleware
 app.use((req, res, next) => {
