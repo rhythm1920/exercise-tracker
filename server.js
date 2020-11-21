@@ -8,6 +8,8 @@ const { ObjectId } = require("mongodb");
 const Schema = mongoose.Schema;
 dotenv.config();
 let date;
+let users; // for storing all the data of users
+let userData = []; // for storing only username and _id of user
 //set up mongoDB
 mongoose.connect(
   process.env.MLAB_URI,
@@ -37,7 +39,41 @@ app.get("/", (req, res) => {
   res.sendFile(__dirname + "/views/index.html");
 });
 //get end-point for getting all user [/api/exercise/users]
+app.get("/api/exercise/users", (req, res, next) => {
+  users = User.find({}, (err, data) => {
+    if (err) return console.error(err);
+    data.map((element) => {
+      userData.push({ _id: element._id, username: element.username });
+    });
+  });
+  res.send(userData);
+});
 //get end-point for exercise logs
+app.get("/api/exercise/log", (req, res) => {
+  let userId = req.query.userId;
+  let toDate = req.query.to;
+  let fromDate = req.query.from;
+  let limit = req.query.limit;
+  let log = [];
+  User.findOne({ _id: userId }, (err, data) => {
+    if (err) return console.error(err);
+    log = [...data.log];
+    if (toDate || fromDate) {
+      log.map((exercise, index) => {
+        if (
+          new Date(exercise.date) >= new Date(toDate) ||
+          new Date(exercise.date) <= new Date(fromDate)
+        ) {
+          log.splice(index, 1);
+        }
+      });
+    }
+    if (limit) {
+      log = log.slice(0, parseInt(limit));
+    }
+    res.json({ logs: log, count: data.count });
+  });
+});
 //post end-point for new user
 app.post("/api/exercise/new-user/", (req, res, next) => {
   User.create(
@@ -45,7 +81,6 @@ app.post("/api/exercise/new-user/", (req, res, next) => {
     (err, data) => {
       if (err) {
         console.error(err);
-        0;
       }
       return res.json({ username: data.username, _id: ObjectId() });
     }
